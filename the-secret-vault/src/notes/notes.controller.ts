@@ -1,13 +1,12 @@
-import { Controller, Get, Post } from '@nestjs/common';
-import { NotesService } from './notes.service';
+import { Controller, Get, Post, Body, Delete, Param, Put, UseGuards, Request } from '@nestjs/common';
+import { NotesService } from './notes.service'; //
+import { RoleGuard } from 'src/guards/role/role.guard';
+import { Roles } from 'src/custom-decorators/auth/roles.decorator';
 
 @Controller('notes')
 export class NotesController {
-    private readonly notesService: NotesService;
-
-    constructor(notesService: NotesService) {
-        this.notesService = notesService;
-    }
+    // 1. Cleaner Dependency Injection using 'private readonly' in constructor
+    constructor(private readonly notesService: NotesService) {} 
 
     @Get('vault')
     getVault() {
@@ -15,38 +14,44 @@ export class NotesController {
     }
 
     @Post('vault')
-    createNote() {
-        return this.notesService.createNote('New note content', 'user1');
+    // 2. Use @Body to get content and @Request to get the owner from the authenticated user
+    createNote(@Body('content') content: string, @Request() req) {
+        // In a real app, the Guard attaches the user to the request
+        const owner = req.user?.username || 'guest'; 
+        return this.notesService.createNote(content, owner);
     }
 
-    @Post('vault/update')
-    updateNote() {
-        this.notesService.updateNoteById(1, 'Updated note content');
-        return this.notesService.findNoteById(1);
+    @Put('vault/:id') // 3. Use standard HTTP PUT and URL parameters for updates
+    @UseGuards(RoleGuard)
+    @Roles('admin')
+    updateNote(@Param('id') id: string, @Body('content') content: string) {
+        this.notesService.updateNoteById(+id, content);
+        return this.notesService.findNoteById(+id);
     }
 
-    @Post('vault/delete')
-    deleteNote() {
-        this.notesService.deleteNoteById(2);
-        return this.notesService.getVault();
+    @Delete('vault/:id') // 4. Use standard HTTP DELETE for removals
+    @UseGuards(RoleGuard)
+    @Roles('admin')
+    deleteNote(@Param('id') id: string) {
+        this.notesService.deleteNoteById(+id);
+        return { message: `Note ${id} deleted`, vault: this.notesService.getVault() };
     }
 
-    @Post('vault/find')
-    findNote() {
-        return this.notesService.findNoteById(1);
+    @Get('vault/:id')
+    findNote(@Param('id') id: string) {
+        return this.notesService.findNoteById(+id);
     }
 
-    @Post('vault/findByOwner')
-    findNotesByOwner() {
-        return this.notesService.findNotesByOwner('user1');
+    @Get('vault/owner/:owner')
+    findNotesByOwner(@Param('owner') owner: string) {
+        return this.notesService.findNotesByOwner(owner);
     }
 
     @Post('vault/set')
-    setVault() {
-        const newVault = [
-            { id: 1, content: 'Overwritten note 1', owner: 'admin' },
-            { id: 2, content: 'Overwritten note 2', owner: 'user2' }
-        ];
+    @UseGuards(RoleGuard)
+    @Roles('admin')
+    setVault(@Body() newVault: any[]) {
+        // Allow admins to pass the new vault structure via the request body
         this.notesService.setVault(newVault);
         return this.notesService.getVault();
     }
