@@ -1,13 +1,16 @@
-import { Controller, Get, Post, Body, Delete, Param, Put, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Delete, Param, Put, UseGuards, Request, UseInterceptors } from '@nestjs/common';
 import { NotesService } from './notes.service'; //
 import { RoleGuard } from 'src/guards/role/role.guard';
 import { Roles } from 'src/custom-decorators/auth/roles.decorator';
+import { TransformResponseInterceptor } from 'src/interceptors/transform-response/transform-response.interceptor';
 
 @Controller('notes')
 export class NotesController {
     // 1. Cleaner Dependency Injection using 'private readonly' in constructor
     constructor(private readonly notesService: NotesService) {} 
 
+
+    @UseInterceptors(TransformResponseInterceptor)
     @Get('vault')
     getVault() {
         return this.notesService.getVault();
