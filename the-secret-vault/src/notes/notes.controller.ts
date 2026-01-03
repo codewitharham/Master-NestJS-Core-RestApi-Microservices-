@@ -3,6 +3,8 @@ import { NotesService } from './notes.service'; //
 import { RoleGuard } from 'src/guards/role/role.guard';
 import { Roles } from 'src/custom-decorators/auth/roles.decorator';
 import { TransformResponseInterceptor } from 'src/interceptors/transform-response/transform-response.interceptor';
+import { TimeoutInterceptor } from 'src/interceptors/timeout/timeout.interceptor';
+import { NotesPasswordHideInterceptor } from 'src/interceptors/notes-password-hide/notes-password-hide.interceptor';
 
 @Controller('notes')
 export class NotesController {
@@ -10,7 +12,7 @@ export class NotesController {
     constructor(private readonly notesService: NotesService) {} 
 
 
-    @UseInterceptors(TransformResponseInterceptor)
+    @UseInterceptors(TransformResponseInterceptor, NotesPasswordHideInterceptor)
     @Get('vault')
     getVault() {
         return this.notesService.getVault();
@@ -25,6 +27,7 @@ export class NotesController {
     }
 
     @Put('vault/:id') // 3. Use standard HTTP PUT and URL parameters for updates
+
     @UseGuards(RoleGuard)
     @Roles('admin')
     updateNote(@Param('id') id: string, @Body('content') content: string) {
@@ -40,7 +43,10 @@ export class NotesController {
         return { message: `Note ${id} deleted`, vault: this.notesService.getVault() };
     }
 
+    
     @Get('vault/:id')
+    @UseGuards(RoleGuard)
+    @Roles('admin') 
     findNote(@Param('id') id: string) {
         return this.notesService.findNoteById(+id);
     }
@@ -57,5 +63,13 @@ export class NotesController {
         // Allow admins to pass the new vault structure via the request body
         this.notesService.setVault(newVault);
         return this.notesService.getVault();
+    }
+
+    @Get('timeout')
+    @UseInterceptors(TimeoutInterceptor)
+    async timeoutTest() {
+        // Simulate a long-running operation
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        return { message: 'This response should timeout if it exceeds the limit.' };
     }
 }
